@@ -5,15 +5,33 @@ on:
     branches:
       - master
 
-jobs:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-  build_and_deploy_tech_docs:
-    environment: production
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build website
     runs-on: ubuntu-latest
+    env:
+      NO_CONTRACTS: true
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v3
 
       - name: Setup node
         uses: actions/setup-node@v3
@@ -34,32 +52,19 @@ jobs:
       - name: Build static site
         run: bundle exec middleman build
 
-      - name: Install CF CLI
-        run: |
-          wget https://s3-us-west-1.amazonaws.com/v7-cf-cli-releases/releases/v7.2.0/cf7-cli-installer_7.2.0_x86-64.deb
-          sudo dpkg -i cf7-cli-installer_7.2.0_x86-64.deb
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: ./build
 
-      - name: Authenticate with Gov.UK PaaS
-        env:
-          CF_API: "https://api.cloud.service.gov.uk"
-          CF_ORG: "govwifi"
-          CF_SPACE: "production"
-          CF_USERNAME: ${{ secrets.cf_username }}
-          CF_PASSWORD: ${{ secrets.cf_password }}
-        run: |
-          echo "Logging into $CF_ORG/$CF_SPACE..."
-          cf api "${CF_API}"
-          cf auth
-          cf target -o "${CF_ORG}" -s "${CF_SPACE}"
-
-      - name: Deploy to Gov.UK PaaS
-        env:
-          CF_API: "https://api.cloud.service.gov.uk"
-          CF_ORG: "govwifi"
-          CF_SPACE: "production"
-          CF_USERNAME: ${{ secrets.cf_username }}
-          CF_PASSWORD: ${{ secrets.cf_password }}
-        run: |
-          cf push --strategy rolling -f manifest.yml
-          cf logout
-          
+  # Deployment job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
