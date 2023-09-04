@@ -87,6 +87,10 @@ bundle exec middleman build
 This will create a `build` subfolder in the application folder which contains
 the HTML and asset files ready to be published.
 
+## Deployment
+
+This project is deployed to github pages
+
 [rvm]: https://www.ruby-lang.org/en/documentation/installation/#managers
 [bundler]: http://bundler.io/
 
